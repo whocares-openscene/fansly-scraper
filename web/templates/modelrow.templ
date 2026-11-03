@@ -1,0 +1,20 @@
+package templates
+
+templ ModelRow(username string, displayName string, id string, wallCount int) {
+	<tr>
+		<td>{ username }</td>
+		<td>{ displayName }</td>
+		<td style="font-family: monospace; font-size: 0.85rem;">{ id }</td>
+		<td><span class="badge badge-info">{ wallCount }</span></td>
+		<td>
+			<div class="flex">
+				<button class="btn" 
+					hx-get={ "/models/" + id + "/download" }
+					hx-target="#download-modal"
+					hx-swap="innerHTML">
+					Download
+				</button>
+			</div>
+		</td>
+	</tr>
+}

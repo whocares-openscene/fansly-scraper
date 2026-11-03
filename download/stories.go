@@ -29,6 +29,14 @@ func (d *Downloader) DownloadStories(ctx context.Context, modelId, modelName str
 		storyMap[story.ContentID] = story
 	}
 
+	d.reportProgress(ProgressUpdate{Type: "status", Message: fmt.Sprintf("Found %d story media items", len(storyMediaItems)), Current: 0, Total: len(storyMediaItems)})
+
+	if len(storyMediaItems) == 0 {
+		logger.Logger.Printf("[INFO] [%s] No new story media to download.", modelName)
+		d.reportProgress(ProgressUpdate{Type: "progress", Percent: 100, Message: "No story media to download", Current: 0, Total: 0})
+		return nil
+	}
+
 	baseDir := filepath.Join(d.saveLocation, strings.ToLower(modelName), "stories")
 	for _, subDir := range []string{"images", "videos", "audios"} {
 		if err = os.MkdirAll(filepath.Join(baseDir, subDir), os.ModePerm); err != nil {
@@ -53,6 +61,10 @@ func (d *Downloader) DownloadStories(ctx context.Context, modelId, modelName str
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, 10)
 
+	completedItems := 0
+	var completedMu sync.Mutex
+	totalItems := len(storyMediaItems)
+
 	for i, mediaItem := range storyMediaItems {
 		var contentSource any
 		if story, ok := storyMap[mediaItem.ID]; ok {
@@ -64,17 +76,29 @@ func (d *Downloader) DownloadStories(ctx context.Context, modelId, modelName str
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 
-			// Pass index to the download function
+			d.reportProgress(ProgressUpdate{Type: "post_start", Message: fmt.Sprintf("Downloading story media %s", media.ID), Current: completedItems, Total: totalItems})
+
 			err := d.downloadStoryMediaItem(ctx, media, baseDir, modelName, source, index)
 			if err != nil {
 				logger.Logger.Printf("[ERROR] [%s] Failed to download story media item %s: %v", modelName, media.ID, err)
 			}
+
+			completedMu.Lock()
+			completedItems++
+			percent := 0
+			if totalItems > 0 {
+				percent = (completedItems * 100) / totalItems
+			}
+			d.reportProgress(ProgressUpdate{Type: "progress", Percent: percent, Message: fmt.Sprintf("Completed %d/%d story items", completedItems, totalItems), Current: completedItems, Total: totalItems})
+			completedMu.Unlock()
+
 			d.progressBar.Add(1)
 		}(mediaItem, contentSource, i)
 	}
 
 	wg.Wait()
 	d.progressBar.Clear()
+	d.reportProgress(ProgressUpdate{Type: "progress", Percent: 100, Message: "Stories download complete", Current: totalItems, Total: totalItems})
 	return ctx.Err()
 }
 

@@ -193,7 +193,7 @@ func main() {
 	if flags.Username != "" && flags.DownloadType != "" {
 		users := parseUsernames(flags.Username)
 		for _, u := range users {
-			runCLIMode(u, flags.DownloadType, downloader, flags.WallID)
+			runCLIMode(u, flags.DownloadType, downloader, flags.WallID, flags.WallName)
 		}
 		return
 	}
@@ -274,7 +274,7 @@ func runExploreMode(exploreTags, usernameFilter string, limit int, downloader *d
 }
 
 // Updated function signature to accept wallID
-func runCLIMode(username string, downloadType string, downloader *download.Downloader, wallID string) {
+func runCLIMode(username string, downloadType string, downloader *download.Downloader, wallID string, wallName string) {
 	cfg, err := config.LoadConfig(config.GetConfigPath())
 	if err != nil {
 		logger.Logger.Printf("Failed to load config for login: %v", err)
@@ -313,7 +313,7 @@ func runCLIMode(username string, downloadType string, downloader *download.Downl
 	switch downloadType {
 	case "all":
 		// Use wallID parameter
-		if err := downloader.DownloadTimeline(ctx, modelID, username, wallID); err != nil {
+		if err := downloader.DownloadTimeline(ctx, modelID, username, wallID, wallName); err != nil {
 			logger.Logger.Printf("Error downloading timeline: %v", err)
 		}
 		if err := downloader.DownloadMessages(ctx, modelID, username); err != nil {
@@ -329,7 +329,7 @@ func runCLIMode(username string, downloadType string, downloader *download.Downl
 		}
 	case "timeline":
 		// Use wallID parameter
-		if err := downloader.DownloadTimeline(ctx, modelID, username, wallID); err != nil {
+		if err := downloader.DownloadTimeline(ctx, modelID, username, wallID, wallName); err != nil {
 			logger.Logger.Printf("Error downloading timeline: %v", err)
 		}
 	case "messages":

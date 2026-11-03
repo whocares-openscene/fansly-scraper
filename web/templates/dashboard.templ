@@ -1,0 +1,56 @@
+package templates
+
+templ Dashboard(models []Model, flash *Flash, wsURL string) {
+	@Layout("Dashboard", dashboardContent(models, flash, wsURL))
+}
+
+templ dashboardContent(models []Model, flash *Flash, wsURL string) {
+	<div>
+		if flash != nil {
+			<div class={ "flash flash-" + flash.Type }>{ flash.Message }</div>
+		}
+		
+		<div class="card">
+			<h2>Followed Models</h2>
+			if len(models) == 0 {
+				<p style="color: #6c7086;">No models found. Click "Refresh Models" to fetch.</p>
+			} else {
+				<table class="table">
+					<thead>
+						<tr>
+							<th>Username</th>
+							<th>Display Name</th>
+							<th>ID</th>
+							<th>Walls</th>
+							<th>Actions</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, m := range models {
+							@ModelRow(m.Username, m.DisplayName, m.ID, len(m.Walls))
+						}
+					</tbody>
+				</table>
+			}
+		</div>
+		
+		<div class="card">
+			<div class="flex">
+				<button class="btn" hx-post="/models/refresh" hx-target="#model-list" hx-swap="outerHTML">
+					Refresh Models
+				</button>
+				<button class="btn btn-success" hx-get="/download/individual" hx-target="#download-modal" hx-swap="innerHTML">
+					Download Individual Post
+				</button>
+				<button class="btn" hx-get="/explore" hx-target="#download-modal" hx-swap="innerHTML">
+					Explore Tags
+				</button>
+			</div>
+		</div>
+		
+		<div id="model-list"></div>
+		<div id="download-modal"></div>
+		<div id="wall-modal"></div>
+		<div id="progress-modal"></div>
+	</div>
+}

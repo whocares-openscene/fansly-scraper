@@ -1,0 +1,39 @@
+package templates
+
+templ WallRow(id string, name string, description string, pos int) {
+	<tr>
+		<td>{ name }</td>
+		<td style="font-family: monospace; font-size: 0.85rem;">{ id }</td>
+		<td>{ description }</td>
+		<td>{ pos }</td>
+	</tr>
+}
+
+templ WallModal(username string, id string, walls []Wall) {
+	<div class="card" id="wall-modal">
+		<h2>Walls for { username }</h2>
+		<p style="color: #89dceb; font-size: 0.85rem; margin-bottom: 1rem;">Select a wall from the "Download Type" dropdown in the Download modal to download a specific wall.</p>
+		if len(walls) == 0 {
+			<p style="color: #6c7086;">No walls found for this model.</p>
+		} else {
+			<table class="table">
+				<thead>
+					<tr>
+						<th>Name</th>
+						<th>ID</th>
+						<th>Description</th>
+						<th>Position</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, w := range walls {
+						@WallRow(w.ID, w.Name, w.Description, w.Pos)
+					}
+				</tbody>
+			</table>
+		}
+		<div class="flex mt-1">
+			<button class="btn" hx-get={ "/models/" + id + "/download" } hx-target="#download-modal" hx-swap="innerHTML">Back</button>
+		</div>
+	</div>
+}

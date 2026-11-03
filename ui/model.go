@@ -88,6 +88,7 @@ type MainModel struct {
 	loadingTicker             *time.Ticker
 	accountsFetched           bool
 	selectedWallID            string
+	selectedWallName        string
 	postLinksInput            textinput.Model
 	exploreInput              textinput.Model
 	liveStatuses              map[string]bool // model ID -> live, cached for the monitor table

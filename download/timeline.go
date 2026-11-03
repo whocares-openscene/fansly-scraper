@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -29,6 +30,36 @@ import (
 )
 
 var (
+	// Regex to match characters not safe for filenames
+	invalidFilenameChars = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
+)
+
+// sanitizeForFilename replaces invalid filesystem characters with underscores
+func sanitizeForFilename(name string) string {
+	// Replace invalid characters
+	name = invalidFilenameChars.ReplaceAllString(name, "_")
+	// Remove any non-printable characters and emojis (non-ASCII)
+	name = strings.Map(func(r rune) rune {
+		if r >= 32 && r <= 126 {
+			return r
+		}
+		return '_'
+	}, name)
+	// Collapse multiple underscores
+	name = regexp.MustCompile(`_+`).ReplaceAllString(name, "_")
+	// Trim spaces, dots, and underscores from ends
+	name = strings.Trim(name, " ._")
+	// Limit length
+	if len(name) > 100 {
+		name = name[:100]
+	}
+	if name == "" {
+		name = "wall"
+	}
+	return name
+}
+
+var (
 	resolveMu       sync.Mutex
 	activeDownloads sync.Map
 )
@@ -43,9 +74,18 @@ type Downloader struct {
 	ffmpegAvailable bool
 	cfg             *config.Config
 	m3u8Semaphore   *semaphore.Weighted
+	progressFn      func(ProgressUpdate)
 }
 
-func NewDownloader(cfg *config.Config, ffmpegAvailable bool) (*Downloader, error) {
+type ProgressUpdate struct {
+	Type    string // "progress", "status", "log", "post_start", "post_done"
+	Percent int
+	Message string
+	Current int
+	Total   int
+}
+
+func NewDownloader(cfg *config.Config, ffmpegAvailable bool, opts ...func(*Downloader)) (*Downloader, error) {
 	// Initialize database
 	database, err := db.NewDatabase(cfg.Options.SaveLocation)
 	if err != nil {
@@ -76,7 +116,7 @@ func NewDownloader(cfg *config.Config, ffmpegAvailable bool) (*Downloader, error
 		}),
 	)
 
-	return &Downloader{
+	d := &Downloader{
 		database:        database,
 		saveLocation:    cfg.Options.SaveLocation,
 		M3U8Download:    cfg.Options.M3U8Download,
@@ -86,10 +126,28 @@ func NewDownloader(cfg *config.Config, ffmpegAvailable bool) (*Downloader, error
 		ffmpegAvailable: ffmpegAvailable,
 		cfg:             cfg,
 		m3u8Semaphore:   semaphore.NewWeighted(2),
-	}, nil
+	}
+
+	for _, opt := range opts {
+		opt(d)
+	}
+
+	return d, nil
 }
 
-func (d *Downloader) DownloadTimeline(ctx context.Context, modelId, modelName string, wallID string) error {
+func WithProgressCallback(fn func(ProgressUpdate)) func(*Downloader) {
+	return func(d *Downloader) {
+		d.progressFn = fn
+	}
+}
+
+func (d *Downloader) reportProgress(update ProgressUpdate) {
+	if d.progressFn != nil {
+		d.progressFn(update)
+	}
+}
+
+func (d *Downloader) DownloadTimeline(ctx context.Context, modelId, modelName, wallID, wallName string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -99,9 +157,16 @@ func (d *Downloader) DownloadTimeline(ctx context.Context, modelId, modelName st
 		return err
 	}
 
+	d.reportProgress(ProgressUpdate{Type: "status", Message: fmt.Sprintf("Found %d posts", len(timelinePosts)), Current: 0, Total: len(timelinePosts)})
+
 	folderName := "timeline"
 	if wallID != "" {
-		folderName = fmt.Sprintf("wall_%s", wallID)
+		if wallName == "" {
+			wallName = "wall"
+		}
+		// Sanitize wall name for filesystem
+		safeWallName := sanitizeForFilename(wallName)
+		folderName = fmt.Sprintf("%s_%s", safeWallName, wallID)
 	}
 
 	baseDir := filepath.Join(d.saveLocation, strings.ToLower(modelName), folderName)
@@ -169,6 +234,9 @@ func (d *Downloader) DownloadTimeline(ctx context.Context, modelId, modelName st
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, 10)
 
+	completedPosts := 0
+	var completedMu sync.Mutex
+
 	for _, post := range timelinePosts {
 		wg.Add(1)
 		go func(post posts.Post) {
@@ -186,6 +254,8 @@ func (d *Downloader) DownloadTimeline(ctx context.Context, modelId, modelName st
 						downloadFailed = true
 						return
 					}
+
+					d.reportProgress(ProgressUpdate{Type: "post_start", Message: fmt.Sprintf("Downloading post %s (%d items)", post.ID, len(accountMediaItems)), Current: completedPosts, Total: len(timelinePosts)})
 
 					for i, accountMedia := range accountMediaItems {
 						err := d.DownloadMediaItem(ctx, accountMedia, baseDir, modelName, post, i)
@@ -211,6 +281,15 @@ func (d *Downloader) DownloadTimeline(ctx context.Context, modelId, modelName st
 				}
 			}
 
+			completedMu.Lock()
+			completedPosts++
+			percent := 0
+			if len(timelinePosts) > 0 {
+				percent = (completedPosts * 100) / len(timelinePosts)
+			}
+			d.reportProgress(ProgressUpdate{Type: "progress", Percent: percent, Message: fmt.Sprintf("Completed %d/%d posts", completedPosts, len(timelinePosts)), Current: completedPosts, Total: len(timelinePosts)})
+			completedMu.Unlock()
+
 			d.progressBar.Add(1)
 		}(post)
 	}
@@ -221,6 +300,7 @@ func (d *Downloader) DownloadTimeline(ctx context.Context, modelId, modelName st
 
 	d.progressBar.Finish()
 	fmt.Println()
+	d.reportProgress(ProgressUpdate{Type: "progress", Percent: 100, Message: "Timeline download complete", Current: len(timelinePosts), Total: len(timelinePosts)})
 	return ctx.Err()
 }
 

@@ -1,0 +1,50 @@
+package templates
+
+templ ProgressModal(jobID string, modelName string, wsURL string) {
+	<div class="card" id="progress-modal" data-ws-path={ "/ws/progress/" + jobID }>
+		<h2>Downloading: { modelName }</h2>
+		<div class="progress mb-1">
+			<div class="progress-bar" id="progress-bar" style="width: 0%;"></div>
+		</div>
+		<div id="status">Starting...</div>
+		<div id="log" style="margin-top: 1rem; font-family: monospace; font-size: 0.85rem; max-height: 300px; overflow-y: auto; background: #1e1e2e; padding: 1rem; border-radius: 4px;"></div>
+		<div class="flex mt-1">
+			<button class="btn btn-danger" hx-post={ "/jobs/" + jobID + "/cancel" } hx-target="#progress-modal" hx-swap="innerHTML">Cancel</button>
+			<button class="btn" hx-get="/models" hx-target="#download-modal" hx-swap="innerHTML">Back</button>
+		</div>
+		<script>
+			(function() {
+				const modal = document.currentScript.closest('#progress-modal');
+				if (!modal) return;
+				const wsPath = modal.dataset.wsPath;
+				if (!wsPath) return;
+				const ws = new WebSocket("ws://" + window.location.host + wsPath);
+				ws.onmessage = function(event) {
+					const data = JSON.parse(event.data);
+					if (data.type === "progress" && data.percent !== undefined) {
+						const bar = document.getElementById("progress-bar");
+						if (bar) bar.style.width = data.percent + "%";
+					}
+					if (data.type === "status") {
+						const status = document.getElementById("status");
+						if (status) status.textContent = data.message;
+						if (data.message && data.message.includes("Completed")) {
+							const bar = document.getElementById("progress-bar");
+							if (bar) {
+								bar.style.width = "100%";
+								bar.style.background = "#a6e3a1";
+							}
+						}
+					}
+					if (data.type === "log") {
+						const logDiv = document.getElementById("log");
+						if (logDiv) {
+							logDiv.textContent += "\n" + data.message;
+							logDiv.scrollTop = logDiv.scrollHeight;
+						}
+					}
+				};
+			})();
+		</script>
+	</div>
+}

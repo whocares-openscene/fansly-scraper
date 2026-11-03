@@ -1,0 +1,25 @@
+package templates
+
+templ ExploreModal() {
+	<div class="card" id="download-modal">
+		<h2>Explore Premium Previews by Tag</h2>
+		<form hx-post="/explore/start" hx-target="#progress-modal" hx-swap="innerHTML">
+			<div class="form-group">
+				<label>Tags (comma-separated)</label>
+				<input type="text" name="tags" placeholder="e.g. pregnant, cosplay" required>
+			</div>
+			<div class="form-group">
+				<label>Filter by Creator (optional, comma-separated)</label>
+				<input type="text" name="creators" placeholder="e.g. user1,user2">
+			</div>
+			<div class="form-group">
+				<label>Limit per Tag (0 = no limit)</label>
+				<input type="number" name="limit" value="0" min="0">
+			</div>
+			<div class="flex">
+				<button type="submit" class="btn btn-success">Start Explore</button>
+				<button type="button" class="btn" hx-get="/models" hx-target="#download-modal" hx-swap="innerHTML">Cancel</button>
+			</div>
+		</form>
+	</div>
+}

@@ -1,0 +1,17 @@
+package templates
+
+templ IndividualPostModal() {
+	<div class="card" id="download-modal">
+		<h2>Download Individual Post(s)</h2>
+		<form hx-post="/download/post/start" hx-target="#progress-modal" hx-swap="innerHTML">
+			<div class="form-group">
+				<label>Post ID or URL (one per line)</label>
+				<textarea name="post_ids" rows="5" placeholder="123456789012345678&#10;https://fansly.com/posts/123456789012345678" required></textarea>
+			</div>
+			<div class="flex">
+				<button type="submit" class="btn btn-success">Start Download</button>
+				<button type="button" class="btn" hx-get="/models" hx-target="#download-modal" hx-swap="innerHTML">Cancel</button>
+			</div>
+		</form>
+	</div>
+}

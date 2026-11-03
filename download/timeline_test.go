@@ -30,7 +30,7 @@ func TestDownloadTimelineStopsWhenCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if err := d.DownloadTimeline(ctx, "model", "creator", ""); !errors.Is(err, context.Canceled) || requests != 0 {
+	if err := d.DownloadTimeline(ctx, "model", "creator", "", ""); !errors.Is(err, context.Canceled) || requests != 0 {
 		t.Fatalf("cancelled timeline sent %d requests and returned %v", requests, err)
 	}
 }

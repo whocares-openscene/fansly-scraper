@@ -33,14 +33,15 @@ func (m *MainModel) HandleWallSelectionUpdate(msg tea.Msg) (tea.Model, tea.Cmd) 
 			m.cursorPos = 0
 			return m, nil
 		case key.Matches(msg, m.keys.Select):
-			selectedRow := m.table.SelectedRow()
-			// The ID is hidden or in column 0 depending on how we set up the table
-			// Let's assume ID is column 0
-			if len(selectedRow) > 1 {
-				m.selectedWallID = selectedRow[1]
-				m.state = DownloadProgressState
-				return m, m.startWallDownload()
-			}
+				selectedRow := m.table.SelectedRow()
+				// The ID is hidden or in column 0 depending on how we set up the table
+				// Let's assume ID is column 0
+				if len(selectedRow) > 2 {
+					m.selectedWallID = selectedRow[1]
+					m.selectedWallName = selectedRow[2]
+					m.state = DownloadProgressState
+					return m, m.startWallDownload()
+				}
 		}
 	}
 	return m, nil
@@ -50,7 +51,7 @@ func (m *MainModel) startWallDownload() tea.Cmd {
 	ctx, job := m.newDownloadJob()
 
 	return func() tea.Msg {
-		err := m.downloader.DownloadTimeline(ctx, m.selectedModelId, m.selectedModel, m.selectedWallID)
+		err := m.downloader.DownloadTimeline(ctx, m.selectedModelId, m.selectedModel, m.selectedWallID, m.selectedWallName)
 		if err != nil {
 			logger.Logger.Printf("Error downloading wall %s: %v", m.selectedWallID, err)
 			return downloadErrorMsg{Error: err, job: job}

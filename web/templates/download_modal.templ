@@ -1,0 +1,36 @@
+package templates
+
+templ DownloadModal(username string, displayName string, id string, walls []Wall) {
+	<div class="card" id="download-modal">
+		<h2>Download: { username } ({ displayName })</h2>
+		<form hx-post={ "/models/" + id + "/download/start" } hx-target="#progress-modal" hx-swap="innerHTML" hx-indicator="#download-btn">
+			<div class="form-group">
+				<label>Download Type</label>
+				<select name="download_type" id="download_type">
+					<option value="all">All (Timeline + Messages + Stories)</option>
+					<option value="timeline">Timeline (All Walls)</option>
+					<!-- Wall-specific timeline options -->
+					for _, w := range walls {
+						<option value={"timeline_wall_" + w.ID}>Timeline: { w.Name }</option>
+					}
+					<option value="messages">Messages Only</option>
+					<option value="stories">Stories Only</option>
+				</select>
+			</div>
+			
+			<div class="form-group">
+				<label>Limit (0 = no limit)</label>
+				<input type="number" name="limit" value="0" min="0">
+			</div>
+			
+			<div class="flex">
+				<button type="submit" class="btn btn-success" id="download-btn">Start Download</button>
+				<button type="button" class="btn" hx-get={ "/models/" + id + "/download" } hx-target="#download-modal" hx-swap="outerHTML">Cancel</button>
+			</div>
+		</form>
+	</div>
+}
+
+templ opt(id string, name string) {
+	<option value={ id }>{ name } ({ id })</option>
+}

@@ -21,6 +21,7 @@ type Flags struct {
 	DiagnosisFlags DiagnosisFlags
 	DumpChatLog    bool
 	WallID         string
+	WallName       string
 	Limit          int
 	Profile        string
 	ConfigPath     string
@@ -49,6 +50,8 @@ func ParseFlags() (Flags, string) {
 
 	flag.StringVar(&flags.WallID, "w", "", "Specific Wall ID to download from")
 	flag.StringVar(&flags.WallID, "wall", "", "Specific Wall ID to download from")
+
+	flag.StringVar(&flags.WallName, "wall-name", "", "Wall name for folder naming (used with --wall)")
 
 	flag.StringVar(&flags.PostID, "p", "", "Download a specific post by ID or URL")
 	flag.StringVar(&flags.PostID, "post", "", "Download a specific post by ID or URL")
