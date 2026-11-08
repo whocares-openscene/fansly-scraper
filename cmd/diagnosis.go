@@ -254,6 +254,7 @@ func (ds *DiagnosisSuite) testDownload(post *posts.PostInfo, media []posts.Accou
 	// We'll create a special config for diagnosis that bypasses the DB check
 	diagConfig := *ds.cfg
 	diagConfig.Options.SkipDownloadedPosts = false // Ensure we don't skip the whole post
+	diagConfig.Options.CopyDownloadedPosts = false // Diagnosis must download, not copy existing files
 
 	// We'll pass a flag to the downloader to tell it to ignore the DB hash check
 	downloader, _ := download.NewDownloader(&diagConfig, IsFFmpegAvailable())

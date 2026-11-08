@@ -76,6 +76,7 @@ console.log('%c➡️ User_Agent =', 'font-size: 12px; color: yellow; font-weigh
 | [content_filename_template](#readable-filenames) | Template for readable filenames. See variables below. | "{date}-{content}_{index}" | "{date}-{content}" |
 | [download_media_type](#filtering-by-media-type)   | Download only specific media. Options: `all`, `images`, `videos`, `audio.` | "all"   | "videos"  |
 | [skip_downloaded_posts](#skipping-processed-posts) | Skip posts that have already been processed to speed up subsequent runs.   | false  | true/false  |
+| [copy_downloaded_posts](#copying-processed-posts) | Copy posts that have already been processed to the current `save_location` instead of skipping them. Takes precedence over `skip_downloaded_posts`. | false | true/false |
 | apply_file_timestamps | Apply original source publication/creation timestamps to downloaded output files. | false | true/false |
 
 ### M3U8 Video Download
@@ -104,6 +105,16 @@ Set `skip_downloaded_posts` to `true` to dramatically speed up re-running the sc
 
 > [!WARNING]
 > Due to API rate limits or network issues, it's possible for the application to mark a post as "processed" even if some of its media failed to download. If you suspect content is missing from a previous run, it is recommended to temporarily set `skip_downloaded_posts = false` to force the scraper to re-check all of the creator's posts for any missing files.
+
+### Copying Processed Posts
+
+Set `copy_downloaded_posts = true` when you change `save_location` and want your existing archive moved over instead of skipped or downloaded again. For every post that is already in the database, the scraper copies its recorded files from the old location into the current `save_location`, keeping the `images`/`videos`/`audios` layout (and the wall folder when downloading a wall).
+
+- Files that already exist at the destination are left untouched, so re-running is cheap and safe.
+- Copies are written through a `.part` file and renamed into place, so an interrupted copy never leaves a truncated file.
+- If a recorded source file is missing (for example the old location was deleted), the post is downloaded again as usual.
+- `copy_downloaded_posts` takes precedence over `skip_downloaded_posts`: when both are `true`, previously downloaded posts are copied rather than skipped.
+- The original files are **copied, not moved**, so the old location is left intact.
 
 ### Readable Filenames
 

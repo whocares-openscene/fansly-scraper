@@ -75,6 +75,8 @@ type Downloader struct {
 	cfg             *config.Config
 	m3u8Semaphore   *semaphore.Weighted
 	progressFn      func(ProgressUpdate)
+	statsMu         sync.Mutex
+	stats           SessionStats
 }
 
 type ProgressUpdate struct {
@@ -216,14 +218,27 @@ func (d *Downloader) DownloadTimeline(ctx context.Context, modelId, modelName, w
 	// Pre-fetch media details for all non-skipped posts in batched calls:
 	// the per-post endpoint is rate limited, so fetching one post at a time
 	// serializes the whole timeline regardless of download concurrency.
+	// Posts already recorded in the database are either copied to the new
+	// destination or skipped, depending on the configured options.
 	skipFiles := make(map[string]bool, len(timelinePosts))
+	copyFiles := make(map[string]bool, len(timelinePosts))
 	var postsToFetch []string
 	for _, post := range timelinePosts {
-		if d.cfg.Options.SkipDownloadedPosts && d.database.PostExists(post.ID) {
-			skipFiles[post.ID] = true
-		} else {
+		if !d.database.PostExists(post.ID) {
 			postsToFetch = append(postsToFetch, post.ID)
+			continue
 		}
+		// Copying takes precedence over skipping: the post is not downloaded
+		// again, its files are relocated to the current save location instead.
+		if d.cfg.Options.CopyDownloadedPosts && d.hasCopyableFiles(post.ID) {
+			copyFiles[post.ID] = true
+			continue
+		}
+		if d.cfg.Options.SkipDownloadedPosts {
+			skipFiles[post.ID] = true
+			continue
+		}
+		postsToFetch = append(postsToFetch, post.ID)
 	}
 
 	mediaByPost, err := posts.GetPostsMediaBatch(ctx, postsToFetch, d.headers)
@@ -243,7 +258,15 @@ func (d *Downloader) DownloadTimeline(ctx context.Context, modelId, modelName, w
 			defer wg.Done()
 
 			downloadFailed := false
-			if !skipFiles[post.ID] {
+			if copyFiles[post.ID] {
+				d.reportProgress(ProgressUpdate{Type: "post_start", Message: fmt.Sprintf("Copying post %s from previous download", post.ID), Current: completedPosts, Total: len(timelinePosts)})
+				if copied, copyErr := d.copyExistingPostFiles(post.ID, modelName, baseDir); copyErr != nil {
+					logger.Logger.Printf("[ERROR] [%s] Failed to copy files for post %s: %v", modelName, post.ID, copyErr)
+					downloadFailed = true
+				} else {
+					logger.Logger.Printf("[INFO] [%s] Copied %d file(s) for post %s", modelName, copied, post.ID)
+				}
+			} else if !skipFiles[post.ID] {
 				func() {
 					semaphore <- struct{}{}
 					defer func() { <-semaphore }()
@@ -760,6 +783,8 @@ func (d *Downloader) downloadSingleItem(ctx context.Context, accountMedia posts.
 		dlErr = d.DownloadM3U8(ctx, modelName, fullUrl, filePath, sourceID, frameRate, isDiagnosis)
 		if dlErr != nil {
 			os.Remove(filePath) // Clean up the 0-byte file if ffmpeg fails
+		} else if !isDiagnosis {
+			d.recordDownload("video")
 		}
 	} else {
 		dlErr = d.downloadRegularFile(ctx, mediaUrl, filePath, modelName, fileType, sourceID, isDiagnosis)
@@ -871,6 +896,7 @@ func (d *Downloader) downloadRegularFile(ctx context.Context, url, filePath stri
 
 	hashString := hex.EncodeToString(hash.Sum(nil))
 	if !isDiagnosis {
+		d.recordDownload(fileType)
 		return d.database.SaveFile(modelName, hashString, filePath, fileType, postID)
 	}
 

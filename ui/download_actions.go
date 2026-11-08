@@ -120,6 +120,6 @@ func (m *MainModel) startDownload(option string) tea.Cmd {
 			logger.Logger.Printf("Error downloading %s for %s: %v", option, m.selectedModel, err)
 		}
 
-		return downloadCompleteMsg{job: job}
+		return downloadCompleteMsg{job: job, stats: m.downloadStats()}
 	}
 }

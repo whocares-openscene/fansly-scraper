@@ -21,9 +21,7 @@ func (m *MainModel) HandleFollowedModelsMenuUpdate(msg tea.Msg) (tea.Model, tea.
 			m.quit = true
 			return m, tea.Quit
 		case key.Matches(msg, m.keys.Reset):
-			m.filteredModels = m.followedModels // Reset to unfiltered list
-			m.filterInput = ""                  // Reset filter input
-			m.updateTable()                     // Update table to show unfiltered list
+			m.resetModelFilter()
 			return m, nil
 		case key.Matches(msg, m.keys.Up):
 			m.table.MoveUp(1)
@@ -42,9 +40,7 @@ func (m *MainModel) HandleFollowedModelsMenuUpdate(msg tea.Msg) (tea.Model, tea.
 				return m, nil
 			}
 			m.selectedModel = selectedRow[1]
-			m.filteredModels = m.followedModels // Reset to unfiltered list
-			m.filterInput = ""                  // Reset filter input
-			m.updateTable()
+			m.resetModelFilter()
 			for _, model := range m.followedModels {
 				if model.Username == m.selectedModel {
 					m.selectedModelId = model.ID
@@ -55,6 +51,9 @@ func (m *MainModel) HandleFollowedModelsMenuUpdate(msg tea.Msg) (tea.Model, tea.
 			// Handle post-download or other actions for the selected model here
 		case key.Matches(msg, m.keys.Filter):
 			m.state = FilterState
+			return m, nil
+		case key.Matches(msg, m.keys.SubFilter):
+			m.cycleModelFilter()
 			return m, nil
 		case key.Matches(msg, m.keys.Back):
 			m.state = MainMenuState
@@ -99,8 +98,13 @@ func (m *MainModel) RenderFollowedModelsMenu() string {
 		sb.WriteString("Who do you want to unlike all post from? \n")
 	}
 	sb.WriteString(m.table.View() + "\n")
+	filterInfo := ""
+	if label := m.modelFilterLabel(); label != "" {
+		filterInfo = fmt.Sprintf("\nShowing %s (s to change)\n", label)
+		sb.WriteString(filterInfo)
+	}
 	helpView := m.help.View(m.keys)
-	height := m.height - strings.Count(helpView, "\n") - m.table.Height() - 8
+	height := m.height - strings.Count(helpView, "\n") - m.table.Height() - 8 - strings.Count(filterInfo, "\n")
 	if height < 0 {
 		height = 0 // strings.Repeat panics on negative counts (small terminals)
 	}
@@ -108,6 +112,14 @@ func (m *MainModel) RenderFollowedModelsMenu() string {
 	sb.WriteString("\n" + strings.Repeat("\n", height) + helpView)
 
 	return sb.String()
+}
+
+// subscriptionMark is the compact indicator shown in the Sub column.
+func subscriptionMark(subscribed bool) string {
+	if subscribed {
+		return "yes"
+	}
+	return "-"
 }
 
 // updateTableIndicator moves the leading > marker to the table's currently
@@ -129,6 +141,7 @@ func (m *MainModel) updateTable() {
 	columns := []table.Column{
 		{Title: " ", Width: 2},
 		{Title: "Username", Width: 20},
+		{Title: "Sub", Width: 4},
 		//{Title: "AccountId", Width: 20},
 		{Title: "Images", Width: 10},
 		{Title: "Videos", Width: 10},
@@ -151,6 +164,7 @@ func (m *MainModel) updateTable() {
 		rows[i] = table.Row{
 			indicator,
 			model.Username,
+			subscriptionMark(model.Subscribed),
 			//model.ID,
 			fmt.Sprintf("%d", model.TimelineStats.ImageCount),
 			fmt.Sprintf("%d", model.TimelineStats.VideoCount),

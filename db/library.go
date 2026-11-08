@@ -1,11 +1,13 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/agnosto/fansly-scraper/db/models"
 	"github.com/agnosto/fansly-scraper/logger"
 	"github.com/agnosto/fansly-scraper/utils"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -47,4 +49,28 @@ func (d *Database) PostExists(postID string) bool {
 		return false
 	}
 	return count > 0
+}
+
+// GetProcessedPost returns the record for a post that was already processed,
+// or nil when the post has no record.
+func (d *Database) GetProcessedPost(postID string) (*models.ProcessedPost, error) {
+	var post models.ProcessedPost
+	err := d.DB.Where("post_id = ?", postID).First(&post).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &post, nil
+}
+
+// FilesForPost returns every file recorded for a post, ordered by path so
+// copies happen in a stable sequence.
+func (d *Database) FilesForPost(postID string) ([]models.File, error) {
+	var files []models.File
+	if err := d.DB.Where("post_id = ?", postID).Order("path").Find(&files).Error; err != nil {
+		return nil, err
+	}
+	return files, nil
 }

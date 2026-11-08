@@ -88,7 +88,7 @@ func (m *MainModel) startIndividualPostsDownload(input string) tea.Cmd {
 		postIDs := parseIndividualPostLinks(input)
 		if len(postIDs) == 0 {
 			logger.Logger.Printf("No valid post IDs or URLs found in input: %q", input)
-			return downloadCompleteMsg{job: job}
+			return downloadCompleteMsg{job: job, stats: m.downloadStats()}
 		}
 
 		for i, id := range postIDs {
@@ -102,6 +102,6 @@ func (m *MainModel) startIndividualPostsDownload(input string) tea.Cmd {
 			}
 		}
 
-		return downloadCompleteMsg{job: job}
+		return downloadCompleteMsg{job: job, stats: m.downloadStats()}
 	}
 }

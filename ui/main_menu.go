@@ -86,7 +86,7 @@ func (m *MainModel) handleMainMenuSelection() (tea.Model, tea.Cmd) {
 				logger.Logger.Printf("Error downloading purchased content: %v", err)
 				return downloadErrorMsg{Error: err, job: job}
 			}
-			return downloadCompleteMsg{job: job}
+			return downloadCompleteMsg{job: job, stats: m.downloadStats()}
 		}
 		//return m, m.fetchAccountInfoCmd()
 	case "Monitor a user's livestreams":

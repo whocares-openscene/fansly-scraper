@@ -8,6 +8,7 @@ import (
 	//"github.com/agnosto/fansly-scraper/core"
 	"time"
 
+	"github.com/agnosto/fansly-scraper/download"
 	"github.com/agnosto/fansly-scraper/logger"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -93,7 +94,6 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Success {
 			m.welcome = msg.AccountInfo.Welcome
 			m.followedModels = msg.AccountInfo.FollowedModels
-			m.filteredModels = msg.AccountInfo.FollowedModels
 			m.accountsFetched = true // Set the flag when accounts are successfully fetched
 
 			if m.actionChosen == "monitor" {
@@ -102,7 +102,7 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 			m.state = FollowedModelsState
-			m.updateTable()
+			m.applyFilter() // keep any filter the user had applied
 		} else {
 			// Handle error
 			m.state = MainMenuState
@@ -136,7 +136,7 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Sequence(
 			tea.Tick(3*time.Second, func(time.Time) tea.Msg {
-				return delayedDownloadCompleteMsg{job: msg.job}
+				return delayedDownloadCompleteMsg{job: msg.job, stats: msg.stats}
 			}),
 		)
 	case downloadErrorMsg:
@@ -144,6 +144,7 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.cancelDownload = nil
+		m.lastStats = download.SessionStats{}
 		m.message = "Download error: " + msg.Error.Error()
 		m.state = MainMenuState
 		m.cursorPos = 0
@@ -152,6 +153,7 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.job != m.downloadJob || (m.state != DownloadProgressState && m.state != DownloadPurchasedState) {
 			return m, nil
 		}
+		m.lastStats = msg.stats
 		m.state = CompletionState
 		m.cursorPos = 0
 		return m, tea.ClearScreen
@@ -174,6 +176,7 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state != LikeUnlikeState {
 			return m, nil
 		}
+		m.lastStats = download.SessionStats{}
 		m.state = CompletionState
 		m.cursorPos = 0
 		return m, nil

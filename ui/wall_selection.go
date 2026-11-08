@@ -33,15 +33,15 @@ func (m *MainModel) HandleWallSelectionUpdate(msg tea.Msg) (tea.Model, tea.Cmd) 
 			m.cursorPos = 0
 			return m, nil
 		case key.Matches(msg, m.keys.Select):
-				selectedRow := m.table.SelectedRow()
-				// The ID is hidden or in column 0 depending on how we set up the table
-				// Let's assume ID is column 0
-				if len(selectedRow) > 2 {
-					m.selectedWallID = selectedRow[1]
-					m.selectedWallName = selectedRow[2]
-					m.state = DownloadProgressState
-					return m, m.startWallDownload()
-				}
+			selectedRow := m.table.SelectedRow()
+			// The ID is hidden or in column 0 depending on how we set up the table
+			// Let's assume ID is column 0
+			if len(selectedRow) > 2 {
+				m.selectedWallID = selectedRow[1]
+				m.selectedWallName = selectedRow[2]
+				m.state = DownloadProgressState
+				return m, m.startWallDownload()
+			}
 		}
 	}
 	return m, nil
@@ -49,6 +49,8 @@ func (m *MainModel) HandleWallSelectionUpdate(msg tea.Msg) (tea.Model, tea.Cmd) 
 
 func (m *MainModel) startWallDownload() tea.Cmd {
 	ctx, job := m.newDownloadJob()
+	// newDownloadJob clears the flag, so set it once the job is prepared.
+	m.lastDownloadWasWall = true
 
 	return func() tea.Msg {
 		err := m.downloader.DownloadTimeline(ctx, m.selectedModelId, m.selectedModel, m.selectedWallID, m.selectedWallName)
@@ -56,8 +58,21 @@ func (m *MainModel) startWallDownload() tea.Cmd {
 			logger.Logger.Printf("Error downloading wall %s: %v", m.selectedWallID, err)
 			return downloadErrorMsg{Error: err, job: job}
 		}
-		return downloadCompleteMsg{job: job}
+		return downloadCompleteMsg{job: job, stats: m.downloadStats()}
 	}
+}
+
+// wallsForSelectedModel returns a copy of the walls of the model the current
+// download session belongs to.
+func (m *MainModel) wallsForSelectedModel() []auth.Wall {
+	for _, model := range m.followedModels {
+		if model.ID == m.selectedModelId {
+			walls := make([]auth.Wall, len(model.Walls))
+			copy(walls, model.Walls)
+			return walls
+		}
+	}
+	return nil
 }
 
 func (m *MainModel) RenderWallSelectionMenu() string {
@@ -81,14 +96,7 @@ func (m *MainModel) updateWallTable() {
 	}
 
 	// Find the currently selected model in the followedModels list to get their walls
-	var currentModelWalls []auth.Wall
-	for _, model := range m.followedModels {
-		if model.ID == m.selectedModelId {
-			currentModelWalls = make([]auth.Wall, len(model.Walls))
-			copy(currentModelWalls, model.Walls)
-			break
-		}
-	}
+	currentModelWalls := m.wallsForSelectedModel()
 
 	// Sort by Position (Pos)
 	sort.Slice(currentModelWalls, func(i, j int) bool {

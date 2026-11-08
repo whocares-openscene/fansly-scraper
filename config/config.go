@@ -55,6 +55,7 @@ type OptionsConfig struct {
 	DateFormat              string `toml:"date_format"`
 	DownloadMediaType       string `toml:"download_media_type"`
 	SkipDownloadedPosts     bool   `toml:"skip_downloaded_posts"`
+	CopyDownloadedPosts     bool   `toml:"copy_downloaded_posts"`
 	DownloadProfilePic      bool   `toml:"download_profile_pic"`
 	PostLimit               int    `toml:"post_limit"`
 	SkipLongVideos          bool   `toml:"skip_long_videos"`
@@ -233,6 +234,7 @@ func CreateDefaultConfig() *Config {
 			DateFormat:              "20060102",
 			DownloadMediaType:       "all",
 			SkipDownloadedPosts:     false,
+			CopyDownloadedPosts:     false,
 			DownloadProfilePic:      true,
 			PostLimit:               0,
 			SkipLongVideos:          false,

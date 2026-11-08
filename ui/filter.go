@@ -22,9 +22,7 @@ func (m *MainModel) HandleFilterModelsMenuUpdate(msg tea.Msg) (tea.Model, tea.Cm
 			m.quit = true
 			return m, tea.Quit
 		case "esc":
-			m.filteredModels = m.followedModels // Reset to unfiltered list
-			m.filterInput = ""                  // Reset filter input
-			m.updateTable()                     // Update table to show unfiltered list
+			m.resetModelFilter()
 			m.state = FollowedModelsState
 			return m, nil
 		case "up":
@@ -63,12 +61,56 @@ func (m *MainModel) RenderFilterModelsMenu() string {
 }
 
 func (m *MainModel) applyFilter() {
-	filtered := []auth.FollowedModel{}
+	filtered := make([]auth.FollowedModel, 0, len(m.followedModels))
 	for _, model := range m.followedModels {
-		if strings.Contains(strings.ToLower(model.Username), strings.ToLower(m.filterInput)) {
+		if m.modelMatchesFilter(model) {
 			filtered = append(filtered, model)
 		}
 	}
 	m.filteredModels = filtered
 	m.updateTable()
+}
+
+// modelMatchesFilter reports whether a creator passes both the username text
+// filter and the subscription filter.
+func (m *MainModel) modelMatchesFilter(model auth.FollowedModel) bool {
+	switch m.modelFilter {
+	case modelFilterSubscribed:
+		if !model.Subscribed {
+			return false
+		}
+	case modelFilterNotSubscribed:
+		if model.Subscribed {
+			return false
+		}
+	}
+	return strings.Contains(strings.ToLower(model.Username), strings.ToLower(m.filterInput))
+}
+
+// cycleModelFilter advances the subscription filter: all -> subscribed only ->
+// not subscribed -> all. The username filter is kept.
+func (m *MainModel) cycleModelFilter() {
+	for i, mode := range modelFilterModes {
+		if mode == m.modelFilter {
+			m.modelFilter = modelFilterModes[(i+1)%len(modelFilterModes)]
+			break
+		}
+	}
+	m.applyFilter()
+}
+
+// resetModelFilter clears the username and subscription filters.
+func (m *MainModel) resetModelFilter() {
+	m.filterInput = ""
+	m.modelFilter = modelFilterAll
+	m.applyFilter()
+}
+
+// modelFilterLabel describes the active subscription filter, or "" when every
+// creator is listed.
+func (m *MainModel) modelFilterLabel() string {
+	if m.modelFilter == modelFilterAll {
+		return ""
+	}
+	return m.modelFilter.String()
 }

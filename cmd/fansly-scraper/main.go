@@ -251,6 +251,7 @@ func runDownloadPostMode(postIdentifier string, downloader *download.Downloader)
 		os.Exit(1)
 	}
 	fmt.Println("Post download complete.")
+	fmt.Println(downloader.Stats().Summary())
 }
 
 // runExploreMode downloads premium-post previews discovered via the Explore
@@ -271,6 +272,7 @@ func runExploreMode(exploreTags, usernameFilter string, limit int, downloader *d
 		os.Exit(1)
 	}
 	fmt.Println("Explore download complete.")
+	fmt.Println(downloader.Stats().Summary())
 }
 
 // Updated function signature to accept wallID
@@ -344,6 +346,8 @@ func runCLIMode(username string, downloadType string, downloader *download.Downl
 		logger.Logger.Printf("Invalid download type. Use 'all', 'timeline', or 'messages'")
 		os.Exit(1)
 	}
+
+	fmt.Println(downloader.Stats().Summary())
 }
 
 func parseUsernames(input string) []string {

@@ -35,9 +35,20 @@ func (d *Downloader) DownloadPostByID(ctx context.Context, postIdentifier string
 		return fmt.Errorf("authentication failed: %w", err)
 	}
 
-	if d.cfg.Options.SkipDownloadedPosts && d.database.PostExists(postID) {
-		logger.Logger.Printf("Post %s has already been processed. Skipping.", postID)
-		return nil
+	if d.database.PostExists(postID) {
+		if d.cfg.Options.CopyDownloadedPosts {
+			copied, copyErr := d.copyPreviouslyDownloadedPost(postID)
+			if copyErr == nil {
+				logger.Logger.Printf("Post %s was already downloaded. Copied %d file(s) to the current save location.", postID, copied)
+				return nil
+			}
+			logger.Logger.Printf("[WARN] Could not copy the previously downloaded files for post %s (%v), downloading it again.", postID, copyErr)
+		}
+
+		if d.cfg.Options.SkipDownloadedPosts {
+			logger.Logger.Printf("Post %s has already been processed. Skipping.", postID)
+			return nil
+		}
 	}
 
 	// 2. Get Post Details (info and media)

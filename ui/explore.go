@@ -88,12 +88,12 @@ func (m *MainModel) startExploreDownload(input string) tea.Cmd {
 		tags, users := parseExploreInput(input)
 		if len(tags) == 0 {
 			logger.Logger.Printf("Explore: no valid tags in input %q", input)
-			return downloadCompleteMsg{job: job}
+			return downloadCompleteMsg{job: job, stats: m.downloadStats()}
 		}
 		if err := m.downloader.DownloadExplore(ctx, tags, users, m.downloader.PostLimit()); err != nil {
 			logger.Logger.Printf("Explore download failed: %v", err)
 			return downloadErrorMsg{Error: err, job: job}
 		}
-		return downloadCompleteMsg{job: job}
+		return downloadCompleteMsg{job: job, stats: m.downloadStats()}
 	}
 }

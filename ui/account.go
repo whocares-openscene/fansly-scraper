@@ -13,8 +13,7 @@ func (m *MainModel) FetchAccInfo(configPath string) error {
 
 	m.welcome = accountInfo.Welcome
 	m.followedModels = accountInfo.FollowedModels
-	m.filteredModels = accountInfo.FollowedModels
-	m.updateTable()
+	m.applyFilter()
 	m.state = FollowedModelsState
 
 	return nil

@@ -361,6 +361,7 @@ func handleDownloadStart(w http.ResponseWriter, r *http.Request, baseDownloader 
 		}
 
 		log.Printf("Download job %s completed with error: %v", job.ID, err)
+		job.Progress <- templates.JobProgress{Type: "log", Message: "Stats: " + jobDownloader.Stats().Summary()}
 		job.Done <- err
 	}()
 
@@ -433,6 +434,7 @@ func handleIndividualPostStart(w http.ResponseWriter, r *http.Request, baseDownl
 				job.Progress <- templates.JobProgress{Type: "log", Message: "Success: " + id}
 			}
 		}
+		job.Progress <- templates.JobProgress{Type: "log", Message: "Stats: " + jobDownloader.Stats().Summary()}
 		job.Done <- nil
 	}()
 

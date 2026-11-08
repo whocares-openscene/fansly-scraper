@@ -89,6 +89,7 @@ type FollowedModel struct {
 	ID            string        `json:"id"`
 	Username      string        `json:"username"`
 	DisplayName   string        `json:"displayName"`
+	Subscribed    bool          `json:"subscribed"`
 	TimelineStats TimelineStats `json:"timelineStats"`
 	Walls         []Wall        `json:"walls"`
 	Avatar        *ProfileImage `json:"avatar"`
