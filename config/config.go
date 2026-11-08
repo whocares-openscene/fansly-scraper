@@ -76,10 +76,11 @@ type NotificationsConfig struct {
 }
 
 type SecurityHeadersConfig struct {
-	DeviceID    string    `toml:"device_id"`
-	SessionID   string    `toml:"session_id"`
-	CheckKey    string    `toml:"check_key"`
-	LastUpdated time.Time `toml:"last_updated"`
+	DeviceID      string    `toml:"device_id"`
+	SessionID     string    `toml:"session_id"`
+	CheckKey      string    `toml:"check_key"`
+	LastUpdated   time.Time `toml:"last_updated"`
+	ShutdownToken string    `toml:"shutdown_token"`
 }
 
 type Account struct {
@@ -266,10 +267,11 @@ func CreateDefaultConfig() *Config {
 			SendContactSheetOnLiveEnd: false,
 		},
 		SecurityHeaders: SecurityHeadersConfig{
-			DeviceID:    "",
-			SessionID:   "",
-			CheckKey:    "",
-			LastUpdated: time.Now(),
+			DeviceID:     "",
+			SessionID:    "",
+			CheckKey:     "",
+			LastUpdated:  time.Now(),
+			ShutdownToken: "",
 		},
 	}
 }

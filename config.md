@@ -254,3 +254,18 @@ These are automatically managed by the application:
 - `session_id`: Current session ID
 - `check_key`: Security check key
 - `last_updated`: Last refresh timestamp
+
+### Shutdown Token
+
+Set `shutdown_token` to protect the `POST /shutdown` endpoint so only you can
+stop the web server:
+
+```toml
+[security_headers]
+shutdown_token = "your-secret-token"
+```
+
+When set, every `POST` to `http://localhost:8080/shutdown` must include an
+`X-Shutdown-Token: your-secret-token` header; otherwise the request is
+rejected with `403 Forbidden`. Leave it empty to allow any caller to shut the
+server down (previous behavior).

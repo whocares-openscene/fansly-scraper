@@ -23,10 +23,22 @@ import (
 )
 
 var (
-	upgrader   = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+	upgrader   = websocket.Upgrader{CheckOrigin: allowWebSocketOrigin}
 	jobManager = NewJobManager()
 	server     *http.Server
 )
+
+// allowWebSocketOrigin accepts only same-origin connections from localhost,
+// so a remote page cannot open a WebSocket to this local web UI.
+func allowWebSocketOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	switch origin {
+	case "http://127.0.0.1:8080", "http://localhost:8080":
+		return true
+	}
+	// Also allow the (rare) case of no Origin header (e.g. curl / plain clients)
+	return origin == ""
+}
 
 type Job struct {
 	ID        string
@@ -115,11 +127,11 @@ func main() {
 	// Job management
 	mux.HandleFunc("/jobs/", handleJobActions())
 
-	// Shutdown endpoint
-	mux.HandleFunc("/shutdown", handleShutdown)
+	// Shutdown endpoint - requires X-Shutdown-Token header matching config
+	mux.HandleFunc("/shutdown", handleShutdown(cfg))
 
-	log.Println("Starting web server on :8080")
-	server = &http.Server{Addr: ":8080", Handler: mux}
+	log.Println("Starting web server on 127.0.0.1:8080")
+	server = &http.Server{Addr: "127.0.0.1:8080", Handler: mux}
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -566,21 +578,33 @@ func IsFFmpegAvailable() bool {
 	return err == nil
 }
 
-func handleShutdown(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	log.Println("Shutdown requested via API")
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status": "shutting down"}`))
+func handleShutdown(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 
-	// Shutdown in a goroutine to allow response to be sent first
-	go func() {
-		time.Sleep(500 * time.Millisecond)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		server.Shutdown(ctx)
-	}()
+		// Only a caller presenting the configured shutdown token may stop the
+		// server. An empty configured token disables the check (local-only usage).
+		got := r.Header.Get("x-shutdown-token")
+		want := cfg.SecurityHeaders.ShutdownToken
+		if want == "" || got != want {
+			http.Error(w, "Unauthorized: invalid shutdown token", http.StatusForbidden)
+			return
+		}
+
+		log.Println("Shutdown requested via API")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status": "shutting down"}`))
+
+		// Shutdown in a goroutine to allow response to be sent first
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			server.Shutdown(ctx)
+		}()
+	}
 }
